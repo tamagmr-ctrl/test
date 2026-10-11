@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>配線の low-k 入門</title>
+<style>
+:root{
+  --bg:#E8EDF1; --paper:#F7F9FB; --ink:#18222D; --sub:#52606D; --line:#C5CFD8;
+  --teal:#0D6B68; --teal-soft:#CFE6E4; --cu:#C07A47; --die:#BFCBE6; --warn:#A5421F; --good:#1F7A4C;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+  line-height:1.8;font-size:16px}
+header{padding:28px 20px 12px;max-width:760px;margin:0 auto}
+header h1{margin:0 0 6px;font-size:1.65rem;line-height:1.35;letter-spacing:.01em}
+header p{margin:0;color:var(--sub);font-size:.95rem}
+nav{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:4px;max-width:760px;margin:0 auto;padding:8px 12px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;border:0;background:transparent;color:var(--sub);font:inherit;font-size:.93rem;
+  padding:8px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{background:var(--ink);color:#fff}
+.tab:focus-visible,.chip:focus-visible,input[type=range]:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+main{max-width:760px;margin:0 auto;padding:8px 20px 56px}
+section[hidden]{display:none}
+h2{font-size:1.3rem;margin:28px 0 8px;line-height:1.4}
+h3{font-size:1.05rem;margin:22px 0 4px}
+p{margin:8px 0}
+.lead{font-size:1.05rem}
+.note{font-size:.88rem;color:var(--sub)}
+.def{background:var(--paper);border-left:4px solid var(--teal);padding:12px 16px;margin:16px 0;border-radius:0 8px 8px 0}
+table{width:100%;border-collapse:collapse;background:var(--paper);font-size:.9rem;margin:12px 0;border-radius:8px;overflow:hidden}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:#DCE4EA;font-weight:600}
+.tblwrap{overflow-x:auto}
+.formula{font-family:ui-monospace,Menlo,monospace;background:var(--paper);padding:10px 14px;border-radius:8px;display:block;margin:10px 0;overflow-x:auto}
+
+/* simulator */
+.sim{background:var(--paper);border-radius:14px;padding:14px;margin:14px 0}
+.sim svg{width:100%;height:auto;display:block;border-radius:8px;background:var(--die)}
+.kread{display:flex;align-items:baseline;gap:8px;margin:12px 0 0}
+.kread b{font-size:2.2rem;line-height:1;font-variant-numeric:tabular-nums}
+.kread span{color:var(--sub);font-size:.9rem}
+input[type=range]{width:100%;margin:10px 0 4px;accent-color:var(--teal);height:32px}
+.scale{display:flex;justify-content:space-between;font-size:.78rem;color:var(--sub)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.chip{border:1px solid var(--line);background:#fff;font:inherit;font-size:.85rem;padding:6px 12px;border-radius:999px;cursor:pointer;color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--teal);color:#fff;border-color:var(--teal)}
+.meter{margin:14px 0 4px}
+.meter .row{display:flex;justify-content:space-between;font-size:.9rem}
+.bar{height:12px;background:#DCE4EA;border-radius:6px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;width:0;border-radius:6px;transition:width .25s ease,background-color .25s ease}
+.verdict{margin-top:14px;padding:12px 14px;border-radius:8px;background:var(--teal-soft);font-size:.95rem}
+
+.pair{display:grid;grid-template-columns:1fr;gap:12px;margin:12px 0}
+@media(min-width:620px){.pair{grid-template-columns:1fr 1fr}}
+.pair div{background:var(--paper);padding:12px 16px;border-radius:10px}
+.pair h4{margin:0 0 4px;font-size:1rem}
+.pair.good h4{color:var(--good)} .pair.bad h4{color:var(--warn)}
+ul{padding-left:1.25em;margin:8px 0}
+li{margin:4px 0}
+dl.reg dt{font-weight:700;margin-top:20px;padding-left:12px;border-left:4px solid var(--cu)}
+dl.reg dd{margin:4px 0 0 16px}
+.trend{border-top:1px solid var(--line);padding:14px 0}
+.trend h3{margin:0 0 2px}
+.warnbox{background:#F3E4DC;border-radius:8px;padding:10px 14px;font-size:.9rem;margin:16px 0}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>半導体の配線を速くする絶縁膜<br>バックエンドの low-k</h1>
+  <p>k値の意味、高い・低いのどちらが良いか、要件と規制、最近の動向をまとめました。</p>
+</header>
+
+<nav aria-label="目次">
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="t0" aria-controls="p0" aria-selected="true">概要</button>
+    <button class="tab" role="tab" id="t1" aria-controls="p1" aria-selected="false" tabindex="-1">高い？低い？</button>
+    <button class="tab" role="tab" id="t2" aria-controls="p2" aria-selected="false" tabindex="-1">規制・要件</button>
+    <button class="tab" role="tab" id="t3" aria-controls="p3" aria-selected="false" tabindex="-1">最近のトレンド</button>
+  </div>
+</nav>
+
+<main>
+<!-- 概要 -->
+<section id="p0" role="tabpanel" aria-labelledby="t0">
+  <h2>low-k とは</h2>
+  <p class="lead">チップ上の銅配線どうしの間や層の間を埋める絶縁膜のうち、比誘電率（k値）が二酸化シリコン（k≈4）より低い材料のことです。</p>
+  <div class="def">
+    <b>バックエンド（BEOL: Back End Of Line）</b>とは、トランジスタを作った後に、それらを金属配線でつなぐ工程と領域のことです。先端ロジックでは配線が10〜15層以上重なります。
+  </div>
+
+  <h3>なぜ必要か</h3>
+  <p>配線は微細化で近づくほど、隣の配線との間にできる容量（コンデンサ）が大きくなります。容量が大きいと信号が遅れ、電力を食い、隣の配線にノイズが乗ります。容量は絶縁膜のk値に比例するので、k値を下げれば三つとも改善します。</p>
+  <span class="formula">配線遅延 ∝ R × C　　C ∝ k　　動的電力 ∝ C × V² × f</span>
+
+  <h3>材料の移り変わり（目安）</h3>
+  <div class="tblwrap">
+  <table>
+    <thead><tr><th>材料</th><th>k値</th><th>主な時期</th></tr></thead>
+    <tbody>
+      <tr><td>SiO₂（二酸化シリコン）</td><td>3.9〜4.2</td><td>〜250nm世代</td></tr>
+      <tr><td>FSG（フッ素添加酸化膜）</td><td>3.3〜3.7</td><td>180〜130nm世代</td></tr>
+      <tr><td>SiOC / SiCOH（炭素添加）</td><td>2.7〜3.0</td><td>90〜65nm世代</td></tr>
+      <tr><td>多孔質 SiOC（ULK）</td><td>2.2〜2.5</td><td>45nm世代以降</td></tr>
+      <tr><td>エアギャップ（空隙）</td><td>局所的に2未満</td><td>一部の層での採用例あり</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">世代と採用層は各社で異なります。数値は一般的な範囲の目安です。真空・空気のk値は約1が下限です。</p>
+
+  <h3>用語の補足</h3>
+  <ul>
+    <li><b>ULK（ultra low-k）</b>：一般にk値が2.5前後以下のもの。</li>
+    <li><b>実効k（keff）</b>：膜単体ではなく、エッチングストップ膜やキャップ膜を含めた配線全体の見かけのk値。実際の性能はこちらで決まります。</li>
+    <li><b>high-k</b>：トランジスタのゲート絶縁膜に使う別の材料（HfO₂など）。こちらは k が高いことが目的なので、混同しないようにしてください。</li>
+  </ul>
+</section>
+
+<!-- 高い？低い？ -->
+<section id="p1" role="tabpanel" aria-labelledby="t1" hidden>
+  <h2>k値は高い方が良い？低い方が良い？</h2>
+  <p class="lead">配線の絶縁膜としては<b>低い方が電気特性は良い</b>のですが、低くするほど膜が弱く壊れやすくなるため、<b>強度と信頼性が許す範囲でできるだけ低く</b>するのが答えです。</p>
+
+  <div class="sim" aria-label="k値シミュレーター">
+    <svg id="svg" viewBox="0 0 310 190" role="img" aria-label="銅配線3本の断面。k値に応じて電気力線と空孔が変化します"></svg>
+    <div class="kread"><b id="kval">2.9</b><span>比誘電率 k（スライダーで変更）</span></div>
+    <input id="k" type="range" min="1.0" max="4.2" step="0.1" value="2.9" aria-label="k値">
+    <div class="scale"><span>1.0（空気）</span><span>4.2（SiO₂）</span></div>
+    <div class="chips" id="chips"></div>
+
+    <div class="meter"><div class="row"><span>配線容量（遅延・電力・ノイズの元）</span><b id="m1v"></b></div><div class="bar"><i id="m1"></i></div></div>
+    <div class="meter"><div class="row"><span>機械的強度（目安）</span><b id="m2v"></b></div><div class="bar"><i id="m2"></i></div></div>
+    <div class="meter"><div class="row"><span>製造・信頼性のリスク（目安）</span><b id="m3v"></b></div><div class="bar"><i id="m3"></i></div></div>
+    <div class="verdict" id="verdict" aria-live="polite"></div>
+    <p class="note">配線容量は SiO₂（k=4.2）を100%とした比率です。強度とリスクは傾向を示す概念モデルで、実際の膜の値ではありません。</p>
+  </div>
+
+  <h3>低くするメリット</h3>
+  <div class="pair good"><div><h4>得られるもの</h4>
+    <ul>
+      <li>信号遅延の短縮（高速化）</li>
+      <li>配線の消費電力の低減</li>
+      <li>隣接配線へのノイズ（クロストーク）の低減</li>
+      <li>同じ性能で配線をさらに詰められる</li>
+    </ul></div></div>
+
+  <h3>低くするデメリット</h3>
+  <div class="pair bad"><div><h4>失うもの</h4>
+    <ul>
+      <li><b>強度の低下</b>：多孔質にすると、研磨（CMP）やパッケージ工程の応力で割れたり剥がれたりしやすい。</li>
+      <li><b>加工ダメージ</b>：エッチングやアッシングで膜表面の炭素が抜け、k値が上がってしまう。</li>
+      <li><b>吸湿・金属拡散</b>：空孔から水分や銅が入り、絶縁破壊（TDDB）が早まる。</li>
+      <li><b>熱が逃げにくい</b>：熱伝導率が低く、配線の自己発熱が増える。</li>
+      <li><b>コストと工程の増加</b>：成膜後の紫外線キュアや、空孔を封じる処理が必要になる。</li>
+    </ul></div></div>
+  <p>実際の製品では、下層の細い配線には低いk値、上層の太い配線や強度が要る部分にはやや高いk値を使い分けます。</p>
+</section>
+
+<!-- 規制・要件 -->
+<section id="p2" role="tabpanel" aria-labelledby="t2" hidden>
+  <h2>規制・要件</h2>
+  <p class="lead">k値そのものを定める法律はありません。決めているのは<b>業界ロードマップ・信頼性規格・顧客仕様</b>で、それとは別に、使う化学物質やガスには<b>環境・安全の規制</b>がかかります。</p>
+  <p class="note">質問の「規制要領」は、要件・規格・規制の意味に解釈しました。違う意図でしたらお知らせください。</p>
+
+  <dl class="reg">
+    <dt>1. 業界ロードマップと設計仕様</dt>
+    <dd>国際デバイス・システム・ロードマップ（IRDS）が、配線の実効kや容量の目標を示す指針になっています。各社の設計ルールやPDKには、実効k・配線容量・抵抗が反映されます。</dd>
+
+    <dt>2. 信頼性の認定規格</dt>
+    <dd>絶縁膜はTDDB（経時絶縁破壊）、エレクトロマイグレーション、機械強度（研磨・ダイシング・実装時の応力）で評価されます。製品全体は JEDEC の認定規格（JESD47 など）や故障メカニズムの指針（JEP122 など）に沿って試験され、車載用では AEC-Q100 も加わります。</dd>
+
+    <dt>3. 環境・化学物質の規制</dt>
+    <dd>成膜装置のクリーニングやエッチングにはフッ素系ガス（PFC、NF₃など）を使い、温室効果が大きいため排出削減が求められます（世界半導体会議などの自主目標、EUのFガス規則など）。また EU を中心に PFAS 全般を制限する提案が議論されており、半導体材料への影響が注目されています。日本では化審法の規制物質にも注意が必要です。</dd>
+
+    <dt>4. 前駆体ガス・薬液の安全規制</dt>
+    <dd>有機シラン系の成膜原料や空孔を作る材料（ポロジェン）は、可燃性や毒性を持つものがあります。消防法、高圧ガス保安法、毒物及び劇物取締法、化管法（PRTR）などに該当するかは物質ごとに異なります。</dd>
+
+    <dt>5. 輸出管理</dt>
+    <dd>k値ではなく、成膜・エッチング装置や関連技術の移転が、外為法やワッセナー・アレンジメントに基づく管理の対象になる場合があります。</dd>
+  </dl>
+  <div class="warnbox">一般的な概説です。条文や適用除外は改正されるため、実務では最新の法令と、社内の法務・EHS（環境安全）部門、顧客仕様で確認してください。</div>
+</section>
+
+<!-- トレンド -->
+<section id="p3" role="tabpanel" aria-labelledby="t3" hidden>
+  <h2>最近のトレンド</h2>
+  <p class="note">大きな方向性をまとめています。具体的な採用状況は各社の発表で確認してください。</p>
+
+  <div class="trend"><h3>材料のk値は下げ止まり、構造で下げる方向へ</h3>
+    <p>多孔質化を進めるほど強度と加工ダメージの問題が大きくなるため、材料のk値だけを下げ続けるのは限界に近づいています。実用ではk≈2.5〜3程度の層が多く、そこから先は<b>エアギャップ</b>のように空隙を作る構造で実効kを下げる流れです。</p></div>
+
+  <div class="trend"><h3>主役は「抵抗」へ</h3>
+    <p>配線が細くなると抵抗Rが急増し、容量Cを減らすだけでは遅延が下がりません。銅に代わる<b>ルテニウム、モリブデン、コバルト</b>などの金属、バリア膜の薄膜化、金属を先に作ってから削るサブトラクティブ配線が研究・導入されています。</p></div>
+
+  <div class="trend"><h3>裏面電源供給（BSPDN）</h3>
+    <p>電源配線をチップの裏側に回し、表側の信号配線の混雑を減らす方式です。Intel（PowerVia）、TSMC、Samsung が先端ノードで取り組んでいます。配線設計の自由度が上がり、低kだけに頼らない性能改善になります。</p></div>
+
+  <div class="trend"><h3>3D実装・チップレットとの兼ね合い</h3>
+    <p>ハイブリッドボンディングや先端パッケージでは、実装時の応力が脆い低k層に伝わる問題（チップ・パッケージ相互作用）が重要になっています。強度を確保しつつ、割れにくい構造と材料の組み合わせが求められます。</p></div>
+
+  <div class="trend"><h3>新材料の研究</h3>
+    <p>アモルファス窒化ホウ素や六方晶窒化ホウ素などの2D系材料で、kが2未満の報告があります。ただし量産での成膜、銅やバリアとの相性などの課題が残り、実用化は未確定です。</p></div>
+
+  <div class="trend"><h3>環境規制への対応</h3>
+    <p>温室効果の大きいガスの削減や、PFASを使わない化学品への置き換えが、成膜・エッチング材料の選定にも影響し始めています。</p></div>
+</section>
+</main>
+
+<script>
+(function(){
+  /* ---- tabs ---- */
+  const tabs=[...document.querySelectorAll('.tab')];
+  function select(i){
+    tabs.forEach((t,j)=>{
+      const on=i===j;
+      t.setAttribute('aria-selected',on);
+      t.tabIndex=on?0:-1;
+      document.getElementById('p'+j).hidden=!on;
+    });
+    tabs[i].scrollIntoView({inline:'center',block:'nearest'});
+    window.scrollTo({top:0});
+  }
+  tabs.forEach((t,i)=>{
+    t.addEventListener('click',()=>select(i));
+    t.addEventListener('keydown',e=>{
+      let n=null;
+      if(e.key==='ArrowRight')n=(i+1)%tabs.length;
+      if(e.key==='ArrowLeft')n=(i+tabs.length-1)%tabs.length;
+      if(n!==null){e.preventDefault();select(n);tabs[n].focus();}
+    });
+  });
+
+  /* ---- simulator ---- */
+  const svg=document.getElementById('svg');
+  const slider=document.getElementById('k');
+  const kval=document.getElementById('kval');
+  const presets=[['SiO₂',4.2],['FSG',3.6],['SiOC',2.9],['ULK',2.4],['エアギャップ',1.6]];
+  const chipBox=document.getElementById('chips');
+  presets.forEach(([name,v])=>{
+    const b=document.createElement('button');
+    b.className='chip';b.type='button';b.textContent=name+' '+v.toFixed(1);b.dataset.v=v;
+    b.setAttribute('aria-pressed','false');
+    b.addEventListener('click',()=>{slider.value=v;update();});
+    chipBox.appendChild(b);
+  });
+
+  // deterministic pseudo-random points for pores
+  function rng(seed){return function(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};}
+  const wires=[[40,60],[130,60],[220,60]]; // x,y ; w=50,h=70
+  const W=50,H=70;
+  function inWire(x,y,r){
+    return wires.some(([wx,wy])=>x+r>wx&&x-r<wx+W&&y+r>wy&&y-r<wy+H);
+  }
+  const rand=rng(7);
+  const pores=[];
+  while(pores.length<90){
+    const x=6+rand()*298,y=6+rand()*150,r=2+rand()*2.4;
+    if(!inWire(x,y,r+1))pores.push([x,y,r]);
+  }
+
+  function draw(k){
+    const porosity=Math.max(0,Math.min(1,(3.1-k)/1.6));
+    const nPores=Math.round(porosity*pores.length);
+    const air=k<=1.9;
+    let s='';
+    // dielectric tone: lighter as k falls
+    const t=(k-1)/3.2;
+    const fill=`hsl(222 ${30+t*12}% ${94-t*20}%)`;
+    s+=`<rect x="0" y="0" width="310" height="190" fill="${fill}"/>`;
+    s+=`<rect x="0" y="168" width="310" height="22" fill="#8896A5"/>`;
+    s+=`<text x="8" y="183" font-size="10" fill="#fff">下層（トランジスタ側）</text>`;
+    // pores
+    for(let i=0;i<nPores;i++){
+      const [x,y,r]=pores[i];
+      s+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="#fff" opacity=".85"/>`;
+    }
+    // air gaps
+    if(air){
+      [[90,125],[180,215]].forEach(([a,b])=>{
+        s+=`<rect x="${a+3}" y="52" width="${b-a-6}" height="92" rx="12" fill="#fff" opacity=".92"/>`;
+      });
+    }
+    // field lines between wires
+    const n=Math.max(2,Math.round(k*1.8));
+    const col=air?'#7DA7A5':'#0D6B68';
+    [[90,130],[180,220]].forEach(([a,b])=>{
+      for(let i=0;i<n;i++){
+        const y=60+ (H*(i+.5))/n;
+        s+=`<line x1="${a}" y1="${y.toFixed(1)}" x2="${b}" y2="${y.toFixed(1)}" stroke="${col}" stroke-width="1.6" stroke-linecap="round" opacity=".9"/>`;
+      }
+    });
+    // copper wires
+    wires.forEach(([x,y])=>{
+      s+=`<rect x="${x}" y="${y}" width="${W}" height="${H}" rx="3" fill="#C07A47"/>`;
+      s+=`<rect x="${x}" y="${y}" width="${W}" height="6" rx="3" fill="#D79A6A"/>`;
+    });
+    s+=`<text x="65" y="55" font-size="10" text-anchor="middle" fill="#18222D">Cu配線</text>`;
+    s+=`<text x="155" y="55" font-size="10" text-anchor="middle" fill="#0D6B68">線＝容量</text>`;
+    svg.innerHTML=s;
+  }
+
+  function color(p){ // p: 0 good .. 1 bad
+    return p<.4?'#1F7A4C':p<.7?'#C08A1E':'#A5421F';
+  }
+  function setBar(id,valId,frac,label,bad){
+    const el=document.getElementById(id);
+    el.style.width=(Math.max(2,Math.min(100,frac*100)))+'%';
+    el.style.backgroundColor=color(bad);
+    document.getElementById(valId).textContent=label;
+  }
+
+  function update(){
+    const k=parseFloat(slider.value);
+    kval.textContent=k.toFixed(1);
+    draw(k);
+    const cap=k/4.2;
+    const E=72*Math.pow((k-1)/3.2,3);        // GPa, conceptual
+    const risk=Math.max(0,Math.min(1,(4.2-k)/3.2));
+    setBar('m1','m1v',cap,Math.round(cap*100)+'%',cap);               // high capacitance = bad
+    setBar('m2','m2v',E/72,E>=10?'約'+Math.round(E)+' GPa':'約'+E.toFixed(1)+' GPa',1-E/72);
+    setBar('m3','m3v',risk,risk<.35?'低い':risk<.7?'中':'高い',risk);
+    let v;
+    if(k>=3.8)v='SiO₂相当。丈夫で作りやすい反面、容量が大きく、微細な配線では遅延と電力が厳しくなります。';
+    else if(k>=3.2)v='FSGの領域。SiO₂より容量を約1割減らせ、強度の低下はまだ小さい範囲です。';
+    else if(k>=2.6)v='SiOCの領域。性能と強度のバランスが良く、広く使われてきた範囲です。';
+    else if(k>=1.9)v='多孔質ULKの領域。容量は大きく減りますが、強度が下がり、加工ダメージや信頼性への対策が必須です。';
+    else v='エアギャップの領域。容量は最も小さくなりますが、構造が複雑で、強度と製造難度が最大の課題です。';
+    document.getElementById('verdict').textContent=v;
+    [...chipBox.children].forEach(b=>b.setAttribute('aria-pressed',Math.abs(parseFloat(b.dataset.v)-k)<0.05));
+  }
+  slider.addEventListener('input',update);
+  update();
+})();
+</script>
+</body>
+</html>
