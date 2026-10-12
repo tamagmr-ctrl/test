@@ -67,21 +67,37 @@ dl.reg dd{margin:4px 0 0 16px}
 .trend{border-top:1px solid var(--line);padding:14px 0}
 .trend h3{margin:0 0 2px}
 .warnbox{background:#F3E4DC;border-radius:8px;padding:10px 14px;font-size:.9rem;margin:16px 0}
+.ctl{margin:12px 0 0}
+.ctl label{display:flex;justify-content:space-between;font-size:.9rem}
+.ctl input[type=range]{margin:2px 0 0}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0 0}
+@media(min-width:620px){.stats{grid-template-columns:repeat(3,1fr)}}
+.stat{background:#fff;border-radius:8px;padding:8px 10px}
+.stat span{display:block;font-size:.78rem;color:var(--sub);line-height:1.5}
+.stat b{font-size:1.05rem;font-variant-numeric:tabular-nums}
+.sim svg.plot{background:#fff;max-width:600px;margin:12px auto 0}
+.plot text{font-size:10px;fill:var(--sub)}
+.plot .grid{stroke:var(--line);stroke-width:.6;fill:none}
+.plot .cur{fill:none;stroke:var(--teal);stroke-width:2.2}
+.plot .ref{fill:none;stroke:#8896A5;stroke-width:1.5;stroke-dasharray:5 3}
+.plot .m3{stroke:var(--warn);stroke-width:.9;stroke-dasharray:3 2}
+.plot .fc{stroke:var(--teal);stroke-width:1;stroke-dasharray:2 2}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
 </style>
 </head>
 <body>
 <header>
   <h1>半導体の配線を速くする絶縁膜<br>バックエンドの low-k</h1>
-  <p>k値の意味、高い・低いのどちらが良いか、要件と規制、最近の動向をまとめました。</p>
+  <p>k値の意味、高い・低いのどちらが良いか、周波数特性とRC積、要件と規制、最近の動向をまとめました。</p>
 </header>
 
 <nav aria-label="目次">
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" id="t0" aria-controls="p0" aria-selected="true">概要</button>
     <button class="tab" role="tab" id="t1" aria-controls="p1" aria-selected="false" tabindex="-1">高い？低い？</button>
-    <button class="tab" role="tab" id="t2" aria-controls="p2" aria-selected="false" tabindex="-1">規制・要件</button>
-    <button class="tab" role="tab" id="t3" aria-controls="p3" aria-selected="false" tabindex="-1">最近のトレンド</button>
+    <button class="tab" role="tab" id="t2" aria-controls="p2" aria-selected="false" tabindex="-1">周波数・RC</button>
+    <button class="tab" role="tab" id="t3" aria-controls="p3" aria-selected="false" tabindex="-1">規制・要件</button>
+    <button class="tab" role="tab" id="t4" aria-controls="p4" aria-selected="false" tabindex="-1">最近のトレンド</button>
   </div>
 </nav>
 
@@ -161,8 +177,54 @@ dl.reg dd{margin:4px 0 0 16px}
   <p>実際の製品では、下層の細い配線には低いk値、上層の太い配線や強度が要る部分にはやや高いk値を使い分けます。</p>
 </section>
 
-<!-- 規制・要件 -->
+<!-- 周波数・RC -->
 <section id="p2" role="tabpanel" aria-labelledby="t2" hidden>
+  <h2>配線を周波数特性で見る</h2>
+  <p class="lead">配線は抵抗 R と寄生容量 C でできた<b>ローパスフィルタ</b>です。遅延が大きいことと、通せる周波数の上限（帯域）が低いことは、同じ現象を時間と周波数で見ているだけです。</p>
+  <span class="formula">H(jω) = 1 / (1 + jωRC)　　f_c = 1 / (2πRC)</span>
+  <span class="formula">|H| = 1 / √(1 + (ωRC)²)　　位相 φ = −arctan(ωRC)</span>
+
+  <div class="tblwrap">
+  <table>
+    <thead><tr><th>時間で見ると</th><th>周波数で見ると</th></tr></thead>
+    <tbody>
+      <tr><td>時定数 τ = RC</td><td>遮断周波数 f_c = 1/(2πRC)</td></tr>
+      <tr><td>立ち上がり時間 t_r ≈ 2.2RC</td><td>帯域 f_c ≈ 0.35 / t_r</td></tr>
+      <tr><td>波形がなまる</td><td>高い周波数の成分が減衰する</td></tr>
+      <tr><td>信号が遅れる</td><td>位相が遅れる（φ = −arctan ωRC）</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">上は配線全体を1つの R と C にまとめた集中定数モデルです。実際の配線は R と C が長さ方向に分布した分布定数線路で、50%遅延は約 0.38RC、−3dB帯域は約 0.39/RC（R と C は配線全体の値）になります。下のシミュレーターで両方を切り替えられます。</p>
+
+  <h3>RC積を決めるもの</h3>
+  <span class="formula">R = ρ_eff · L / (w · h)　　C = k · ε₀ · (形状係数) · L　　RC ∝ ρ_eff · k · L²</span>
+  <p>RC積は<b>抵抗率とkの積</b>と、<b>配線長の2乗</b>で決まります。low-k は C を、低抵抗の金属は R を下げるので、どちらか一方だけでは足りません。配線が長いほど、そして細いほど不利になります。</p>
+
+  <div class="sim" aria-label="周波数特性とRC積のシミュレーター">
+    <div class="chips" id="modeChips" role="group" aria-label="配線のモデル"></div>
+    <div class="ctl"><label for="k2">比誘電率 k <b id="k2v"></b></label><input id="k2" type="range" min="1.0" max="4.2" step="0.1" value="2.9"></div>
+    <div class="ctl"><label for="w2">配線幅 <b id="w2v"></b></label><input id="w2" type="range" min="12" max="100" step="1" value="30"></div>
+    <div class="ctl"><label for="l2">配線長 <b id="l2v"></b></label><input id="l2" type="range" min="10" max="1000" step="10" value="100"></div>
+
+    <svg class="plot" id="bode" viewBox="0 0 340 210" role="img" aria-label="配線の周波数特性（ゲイン対周波数）。現在の設定とSiO₂の場合を比べています"></svg>
+
+    <div class="stats" id="stats" aria-live="polite"></div>
+    <div class="verdict" id="v2" aria-live="polite"></div>
+    <p class="note">配線の断面と材料は概念モデルです。銅配線、バリア層2nm、高さは幅の2倍、容量の形状係数は一定（7.5）と仮定し、狭い配線の抵抗率は ρ = ρ₀(1 + 0.75·λ/銅の幅)（λ = 39nm）で上げています。傾向を見るための値で、実際の製品の数値ではありません。</p>
+  </div>
+
+  <h3>RC積は配線幅でどう変わるか</h3>
+  <p>幅100nm・k=4.2 のRC積を1として、微細化に伴う変化を示します。k を下げると線が下がりますが、幅が狭くなるときの上昇が大きく、グラフ全体は右上がりになります。</p>
+  <div class="sim">
+    <svg class="plot" id="rcplot" viewBox="0 0 340 215" role="img" aria-label="配線幅ごとのRC積。kが低くても、幅が狭くなるとRC積は数百倍に増えます"></svg>
+    <p class="note">横軸は配線幅（nm）の等間隔目盛りで、右へ行くほど微細です。縦軸は対数です。丸印は、上のスライダーで選んだ現在の設定です。</p>
+  </div>
+  <p>この抵抗の増加が、トレンドのタブで触れたルテニウムやモリブデンなどの新しい配線金属や、バリア膜の薄膜化が求められる理由です。</p>
+</section>
+
+<!-- 規制・要件 -->
+<section id="p3" role="tabpanel" aria-labelledby="t3" hidden>
   <h2>規制・要件</h2>
   <p class="lead">k値そのものを定める法律はありません。決めているのは<b>業界ロードマップ・信頼性規格・顧客仕様</b>で、それとは別に、使う化学物質やガスには<b>環境・安全の規制</b>がかかります。</p>
   <p class="note">質問の「規制要領」は、要件・規格・規制の意味に解釈しました。違う意図でしたらお知らせください。</p>
@@ -187,7 +249,7 @@ dl.reg dd{margin:4px 0 0 16px}
 </section>
 
 <!-- トレンド -->
-<section id="p3" role="tabpanel" aria-labelledby="t3" hidden>
+<section id="p4" role="tabpanel" aria-labelledby="t4" hidden>
   <h2>最近のトレンド</h2>
   <p class="note">大きな方向性をまとめています。具体的な採用状況は各社の発表で確認してください。</p>
 
@@ -335,6 +397,154 @@ dl.reg dd{margin:4px 0 0 16px}
   }
   slider.addEventListener('input',update);
   update();
+
+  /* ---- frequency response and RC product ---- */
+  const EPS0=8.854e-12, GEO=7.5, RHO0=1.7e-8, LAM=39e-9, AA=0.75, TB=2e-9, AR=2;
+  function Rp(wnm){ // resistance per length [ohm/m], with size effect and barrier
+    const w=wnm*1e-9, wc=w-2*TB, hc=AR*w-TB;
+    return RHO0*(1+AA*LAM/wc)/(wc*hc);
+  }
+  function Cp(k){return GEO*k*EPS0;} // capacitance per length [F/m]
+
+  const sg=v=>v>=100?v.toFixed(0):v>=10?v.toFixed(1):v.toFixed(2);
+  const fmtR=x=>x>=1e6?sg(x/1e6)+' MΩ':x>=1e3?sg(x/1e3)+' kΩ':sg(x)+' Ω';
+  const fmtC=x=>x>=1e-12?sg(x*1e12)+' pF':sg(x*1e15)+' fF';
+  const fmtT=x=>x>=1e-6?sg(x*1e6)+' µs':x>=1e-9?sg(x*1e9)+' ns':sg(x*1e12)+' ps';
+  const fmtF=x=>x>=1e12?sg(x/1e12)+' THz':x>=1e9?sg(x/1e9)+' GHz':x>=1e6?sg(x/1e6)+' MHz':x>=1e3?sg(x/1e3)+' kHz':sg(x)+' Hz';
+
+  const k2=document.getElementById('k2'), w2=document.getElementById('w2'), l2=document.getElementById('l2');
+  const bode=document.getElementById('bode'), rcplot=document.getElementById('rcplot');
+  let dist=true;
+  const modeBox=document.getElementById('modeChips');
+  [['分布定数（実際の配線）',true],['集中定数（単純なRC）',false]].forEach(([name,val])=>{
+    const b=document.createElement('button');
+    b.className='chip';b.type='button';b.textContent=name;b.dataset.v=val;
+    b.addEventListener('click',()=>{dist=val;update2();});
+    modeBox.appendChild(b);
+  });
+
+  // gain [dB] of the wire at frequency f
+  function magDb(f,RC){
+    const x=2*Math.PI*f*RC;
+    if(!dist)return -10*Math.log10(1+x*x);
+    const u=Math.sqrt(x/2);                 // distributed RC line: H = 1/cosh(sqrt(jx))
+    if(u>20)return 6.02-8.686*u;
+    const c=Math.cosh(u), s=Math.sin(u);
+    return -10*Math.log10(c*c-s*s);
+  }
+  const F3=RC=>(dist?2.432:1)/(2*Math.PI*RC);   // -3 dB frequency
+
+  const BX0=40,BX1=330,BY0=22,BY1=172,DBMAX=3,DBMIN=-40;
+  const bx=f=>BX0+(Math.log10(f)-7)/5*(BX1-BX0);
+  const by=d=>BY0+(DBMAX-d)/(DBMAX-DBMIN)*(BY1-BY0);
+  const flab=['10M','100M','1G','10G','100G','1T'];
+
+  function bodePath(RC){
+    let d='';
+    for(let i=0;i<=140;i++){
+      const f=Math.pow(10,7+5*i/140);
+      const db=Math.max(-300,magDb(f,RC));
+      d+=(i?'L':'M')+bx(f).toFixed(1)+' '+by(db).toFixed(1);
+    }
+    return d;
+  }
+
+  function drawBode(RC,RC0){
+    let s='<defs><clipPath id="clipB"><rect x="'+BX0+'" y="'+BY0+'" width="'+(BX1-BX0)+'" height="'+(BY1-BY0)+'"/></clipPath></defs>';
+    for(let e=7;e<=12;e++){
+      const x=bx(Math.pow(10,e)).toFixed(1);
+      s+=`<line class="grid" x1="${x}" y1="${BY0}" x2="${x}" y2="${BY1}"/><text x="${x}" y="186" text-anchor="middle">${flab[e-7]}</text>`;
+    }
+    [0,-10,-20,-30,-40].forEach(d=>{
+      const y=by(d).toFixed(1);
+      s+=`<line class="grid" x1="${BX0}" y1="${y}" x2="${BX1}" y2="${y}"/><text x="${BX0-5}" y="${(+y+3).toFixed(1)}" text-anchor="end">${d}</text>`;
+    });
+    const y3=by(-3).toFixed(1);
+    s+=`<line class="m3" x1="${BX0}" y1="${y3}" x2="${BX1}" y2="${y3}"/><text x="${BX1-2}" y="${(+y3-3).toFixed(1)}" text-anchor="end" style="fill:var(--warn)">−3dB</text>`;
+    s+=`<g clip-path="url(#clipB)"><path class="ref" d="${bodePath(RC0)}"/><path class="cur" d="${bodePath(RC)}"/></g>`;
+    const f3=F3(RC);
+    if(f3>=1e7&&f3<=1e12){
+      const x=bx(f3).toFixed(1);
+      s+=`<line class="fc" x1="${x}" y1="${BY0}" x2="${x}" y2="${BY1}"/>`;
+    }
+    s+=`<text x="2" y="12">dB</text>`;
+    s+=`<text x="44" y="12" style="fill:var(--teal)">実線：現在</text><text x="120" y="12">破線：SiO₂（k=4.2）</text>`;
+    s+=`<text x="${(BX0+BX1)/2}" y="204" text-anchor="middle">周波数（Hz）</text>`;
+    bode.innerHTML=s;
+  }
+
+  // RC product versus wire width
+  const NODES=[100,70,50,40,30,24,20,16,12];
+  const REF=Rp(100)*Cp(4.2);
+  const rel=(w,k)=>Rp(w)*Cp(k)/REF;
+  const RX=i=>46+i/(NODES.length-1)*(330-46);
+  const YMIN=Math.log10(0.3), YMAX=3;
+  const RY=v=>172-(Math.log10(v)-YMIN)/(YMAX-YMIN)*150;
+  function idxOf(w){
+    for(let i=0;i<NODES.length-1;i++){
+      if(w<=NODES[i]&&w>=NODES[i+1])return i+(NODES[i]-w)/(NODES[i]-NODES[i+1]);
+    }
+    return w>NODES[0]?0:NODES.length-1;
+  }
+  function wOf(idx){
+    const i=Math.min(NODES.length-2,Math.floor(idx)), t=idx-i;
+    return NODES[i]+(NODES[i+1]-NODES[i])*t;
+  }
+  function drawRC(k,w){
+    let s='';
+    [1,10,100,1000].forEach(v=>{
+      const y=RY(v).toFixed(1);
+      s+=`<line class="grid" x1="46" y1="${y}" x2="330" y2="${y}"/><text x="42" y="${(+y+3).toFixed(1)}" text-anchor="end">×${v}</text>`;
+    });
+    NODES.forEach((n,i)=>{
+      s+=`<text x="${RX(i).toFixed(1)}" y="187" text-anchor="middle">${n}</text>`;
+    });
+    const lines=[[4.2,'#8896A5','k=4.2（SiO₂）'],[2.9,'#0D6B68','k=2.9（SiOC）'],[2.4,'#C07A47','k=2.4（ULK）']];
+    lines.forEach(([kk,col],n)=>{
+      let d='';
+      for(let t=0;t<=80;t++){
+        const idx=t/10, v=rel(wOf(idx),kk);
+        d+=(t?'L':'M')+RX(idx).toFixed(1)+' '+RY(v).toFixed(1);
+      }
+      s+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="2"/>`;
+      const ly=30+n*13;
+      s+=`<line x1="52" y1="${ly-3}" x2="70" y2="${ly-3}" stroke="${col}" stroke-width="2"/><text x="74" y="${ly}">${lines[n][2]}</text>`;
+    });
+    const mi=idxOf(w), mx=RX(mi), my=RY(rel(w,k));
+    s+=`<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="4.5" fill="#fff" stroke="#A5421F" stroke-width="2.2"/>`;
+    const right=mx>270;
+    s+=`<text x="${(right?mx-8:mx+8).toFixed(1)}" y="${(my+14).toFixed(1)}" text-anchor="${right?'end':'start'}" style="fill:var(--warn)">現在</text>`;
+    s+=`<text x="2" y="12">RC積（幅100nm・k=4.2を1とした比）</text>`;
+    s+=`<text x="188" y="204" text-anchor="middle">配線幅（nm）</text>`;
+    rcplot.innerHTML=s;
+  }
+
+  function update2(){
+    const k=parseFloat(k2.value), w=parseFloat(w2.value), L=parseFloat(l2.value);
+    document.getElementById('k2v').textContent=k.toFixed(1);
+    document.getElementById('w2v').textContent=w+' nm';
+    document.getElementById('l2v').textContent=L+' µm';
+    [...modeBox.children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===String(dist))));
+
+    const Lm=L*1e-6;
+    const R=Rp(w)*Lm, C=Cp(k)*Lm, RC=R*C, RC0=R*Cp(4.2)*Lm;
+    const d50=(dist?0.38:0.69)*RC, f3=F3(RC);
+    drawBode(RC,RC0);
+    drawRC(k,w);
+
+    const items=[
+      ['配線抵抗 R',fmtR(R)],['寄生容量 C',fmtC(C)],['RC積',fmtT(RC)],
+      ['50%遅延',fmtT(d50)],['−3dB帯域',fmtF(f3)],['SiO₂（k=4.2）比のRC積',Math.round(k/4.2*100)+'%']
+    ];
+    document.getElementById('stats').innerHTML=items.map(([a,b])=>`<div class="stat"><span>${a}</span><b>${b}</b></div>`).join('');
+
+    const kr=k/4.2, rr=Rp(w)/Rp(100), tot=kr*rr;
+    let msg=`SiO₂に比べ、kを${k.toFixed(1)}にするとRC積は${kr.toFixed(2)}倍になります。一方、幅が100nmから${w}nmに狭くなるとRは${sg(rr)}倍になります。差し引きのRC積は、幅100nm・SiO₂のときの${sg(tot)}倍です。`;
+    msg+=tot>1?'低kの効果を、抵抗の増加が上回っています。':'抵抗の増加を、低kの効果が上回っています。';
+    document.getElementById('v2').textContent=msg;
+  }
+  [k2,w2,l2].forEach(el=>el.addEventListener('input',update2));
+  update2();
 })();
 </script>
 </body>
