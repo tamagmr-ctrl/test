@@ -1,0 +1,447 @@
+<title>お酒の適量計算</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: 1カラムのツール。上部に固定の集計パネル(積み上げ棒)、その下に酒ごとの入力行、最後に単品上限の早見表。 */
+:root {
+  --bg: #F2F4F7;
+  --surface: #FFFFFF;
+  --fg: #16202E;
+  --muted: #5B6878;
+  --line: #D9DFE7;
+  --accent: #24477A;
+  --accent-fg: #FFFFFF;
+  --good: #1F7A5A;
+  --warn: #9A6200;
+  --bad: #B3302B;
+  --over-bg: rgba(179, 48, 43, 0.10);
+  --c1: #C9921F;
+  --c2: #5F86B5;
+  --c3: #8A4B2A;
+  --c4: #3E8F82;
+  --c5: #8E2F55;
+  --c6: #CF6A7C;
+  --font-body: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic', system-ui, sans-serif;
+  --font-num: 'Shippori Mincho B1', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1621;
+    --surface: #172131;
+    --fg: #E8EDF4;
+    --muted: #9AA8BA;
+    --line: #2A384D;
+    --accent: #8DB0E6;
+    --accent-fg: #0F1621;
+    --good: #5CCB9E;
+    --warn: #E3A93D;
+    --bad: #F08079;
+    --over-bg: rgba(240, 128, 121, 0.14);
+    --c1: #E0A93A;
+    --c2: #7FA6E0;
+    --c3: #C07A52;
+    --c4: #5CC0B0;
+    --c5: #C65A86;
+    --c6: #E58C9B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1621;
+  --surface: #172131;
+  --fg: #E8EDF4;
+  --muted: #9AA8BA;
+  --line: #2A384D;
+  --accent: #8DB0E6;
+  --accent-fg: #0F1621;
+  --good: #5CCB9E;
+  --warn: #E3A93D;
+  --bad: #F08079;
+  --over-bg: rgba(240, 128, 121, 0.14);
+  --c1: #E0A93A;
+  --c2: #7FA6E0;
+  --c3: #C07A52;
+  --c4: #5CC0B0;
+  --c5: #C65A86;
+  --c6: #E58C9B;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 20px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+h1 { margin: 0; font-size: 1.5rem; line-height: 1.3; text-wrap: balance; }
+h2 { margin: 0; font-size: 1.05rem; line-height: 1.4; }
+h3 { margin: 0; font-size: 1rem; }
+.lead { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; }
+.eyebrow { margin: 0 0 4px; font-size: 0.72rem; letter-spacing: 0.12em; color: var(--accent); font-weight: 700; }
+
+/* profile switch */
+.profiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.profile {
+  font: inherit; text-align: left; cursor: pointer;
+  background: var(--surface); color: var(--fg);
+  border: 1.5px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; min-height: 56px; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.profile small { color: var(--muted); font-size: 0.78rem; }
+.profile b { font-size: 0.95rem; }
+.profile[aria-checked="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.profile[aria-checked="true"] small { color: var(--fg); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* summary */
+.summary {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px 16px 12px;
+  display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 6px 16px -10px rgba(10, 20, 40, 0.35);
+}
+.sum-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.big { font-family: var(--font-num); font-weight: 700; font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.big small { font-family: var(--font-body); font-weight: 500; font-size: 0.9rem; color: var(--muted); margin-left: 4px; }
+.big small.u { font-size: 1.2rem; color: var(--fg); margin-left: 2px; }
+.pill {
+  --pill: var(--muted);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 999px; font-weight: 700; font-size: 0.85rem;
+  color: var(--pill);
+  background: color-mix(in srgb, var(--pill) 14%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--pill) 40%, var(--surface));
+}
+.pill[data-s="good"] { --pill: var(--good); }
+.pill[data-s="warn"] { --pill: var(--warn); }
+.pill[data-s="bad"] { --pill: var(--bad); }
+.bar { position: relative; height: 18px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.bar .over { position: absolute; top: 0; bottom: 0; right: 0; background: var(--over-bg); }
+.bar .segs { position: absolute; inset: 0; display: flex; }
+.bar .segs span { height: 100%; background: var(--dc); transition: width 0.25s ease; }
+.bar .tick { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--fg); }
+.barlabel { position: relative; height: 1.1em; font-size: 0.75rem; color: var(--muted); margin-top: -4px; }
+.barlabel span { position: absolute; top: 0; transform: translateX(-100%); padding-right: 6px; white-space: nowrap; }
+.sum-stats { display: flex; gap: 6px 20px; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); }
+.sum-stats b { color: var(--fg); font-variant-numeric: tabular-nums; }
+
+/* drinks */
+.drinks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.drink {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; display: grid; gap: 10px;
+  grid-template-columns: 1fr auto; align-items: center;
+}
+.d-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--dc); flex: none; }
+.abv { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+.abv input {
+  width: 4.2em; font: inherit; font-variant-numeric: tabular-nums; text-align: right;
+  background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px;
+}
+.d-ctl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+select {
+  font: inherit; font-size: 0.85rem; background: var(--bg); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; max-width: 100%; min-width: 0;
+}
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.stepper button {
+  font: inherit; font-size: 1.25rem; line-height: 1; width: 44px; height: 44px; cursor: pointer;
+  background: transparent; color: var(--accent); border: 0;
+}
+.stepper button:active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.stepper button:disabled { color: var(--muted); opacity: 0.4; cursor: default; }
+.stepper output { min-width: 3em; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.d-calc { grid-column: 1 / -1; margin: 0; font-size: 0.85rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.d-calc b { color: var(--fg); font-variant-numeric: tabular-nums; }
+.d-calc .left[data-over="1"] { color: var(--bad); font-weight: 700; }
+
+.tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.note { margin: 0; font-size: 0.82rem; color: var(--muted); }
+.btn {
+  font: inherit; font-weight: 700; cursor: pointer; min-height: 44px; padding: 0 18px;
+  color: var(--accent); background: transparent; border: 1.5px solid var(--accent); border-radius: 8px;
+}
+
+/* reference table */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th, td { text-align: left; padding: 8px 8px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 0.75rem; letter-spacing: 0.08em; color: var(--muted); font-weight: 500; }
+td.num { font-variant-numeric: tabular-nums; }
+tbody tr:last-child td { border-bottom: 0; }
+.rules { margin: 0; padding-left: 1.2em; font-size: 0.88rem; display: flex; flex-direction: column; gap: 4px; }
+.fine { font-size: 0.78rem; color: var(--muted); margin: 0; }
+
+/* driving estimate */
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--muted); min-width: 0; }
+.field .inp { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); font-size: 0.9rem; }
+.field input {
+  font: inherit; font-size: 1rem; font-variant-numeric: tabular-nums; min-height: 44px; width: 100%; min-width: 0;
+  background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+}
+.result { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.result > div { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.result > div:last-child { border-bottom: 0; padding-bottom: 0; }
+.result dt { font-size: 0.85rem; color: var(--muted); }
+.result dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.result .main dd { font-family: var(--font-num); font-size: 1.5rem; color: var(--accent); }
+.warn {
+  margin: 0; font-size: 0.82rem; line-height: 1.65; padding: 10px 12px; border-radius: 8px;
+  color: var(--fg); background: color-mix(in srgb, var(--warn) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--surface));
+}
+
+@media (max-width: 480px) {
+  .drink { grid-template-columns: 1fr; }
+  .d-ctl { justify-content: space-between; }
+  .big { font-size: 2.2rem; }
+}
+@media (prefers-reduced-motion: reduce) { .bar .segs span { transition: none; } }
+</style>
+
+<main class="wrap">
+  <header>
+    <p class="eyebrow">1日の飲酒量の目安</p>
+    <h1>お酒の適量計算</h1>
+    <p class="lead">純アルコール20gを1日の目安に、今日飲んだ量が上限のどこにあたるかを確認できます。</p>
+  </header>
+
+  <section aria-labelledby="h-profile" style="display:flex;flex-direction:column;gap:8px">
+    <h2 id="h-profile">あなたに近いのは?</h2>
+    <div class="profiles" role="radiogroup" aria-labelledby="h-profile" id="profiles"></div>
+  </section>
+
+  <section class="summary" aria-live="polite" aria-label="今日の合計">
+    <div class="sum-top">
+      <div class="big"><span id="total">0.0</span><small class="u">g</small><small id="of"> / 20 g</small></div>
+      <div class="pill" id="pill" data-s="good">まだ飲んでいません</div>
+    </div>
+    <div>
+      <div class="bar" aria-hidden="true"><div class="over" id="over"></div><div class="segs" id="segs"></div><div class="tick" id="tick"></div></div>
+      <div class="barlabel" aria-hidden="true"><span id="ticklabel">上限 20g</span></div>
+    </div>
+    <div class="sum-stats">
+      <span>残り <b id="rest">20.0 g</b></span>
+      <span>分解にかかる時間の目安 <b id="clear">0時間</b></span>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:10px" aria-labelledby="h-drinks">
+    <div class="tools">
+      <h2 id="h-drinks">今日飲む量</h2>
+      <button class="btn" id="reset" type="button">0に戻す</button>
+    </div>
+    <p class="note" id="sample">ビール1缶を入力例として入れています。数を変えるとすぐ計算されます。</p>
+    <ul class="drinks" id="drinks"></ul>
+  </section>
+
+  <section class="card" aria-labelledby="h-drive">
+    <h2 id="h-drive">運転を控える時間の目安</h2>
+    <div class="fields">
+      <label class="field" for="weight">体重
+        <span class="inp"><input id="weight" type="number" inputmode="decimal" min="30" max="200" step="1"> kg</span>
+      </label>
+      <label class="field" for="endtime">飲み終わる時刻
+        <span class="inp"><input id="endtime" type="time"></span>
+      </label>
+    </div>
+    <dl class="result">
+      <div><dt>分解にかかる時間(平均〜遅い人)</dt><dd id="d-span">0時間</dd></div>
+      <div class="main"><dt>運転を控える目安(余裕1時間込み)</dt><dd id="d-at">飲酒量が0gです</dd></div>
+    </dl>
+    <p class="warn">これは目安で、運転してよいことを保証するものではありません。分解の速さは体質や体調で大きく変わり、水やコーヒー、入浴、睡眠では早まりません。翌朝に残ることもあります。飲酒運転は法律で禁止されています。少しでも不安なときは運転せず、公共交通機関や運転代行を使ってください。</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-ref">
+    <h2 id="h-ref">1種類だけ飲む場合の上限</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>お酒</th><th>度数</th><th>上限の量</th><th>目安</th></tr></thead>
+        <tbody id="ref"></tbody>
+      </table>
+    </div>
+    <p class="fine">量(ml) × 度数(%) ÷ 100 × 0.8 = 純アルコール量(g)。複数のお酒を飲むときは、合計で上限に収めます。</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-notes">
+    <h2 id="h-notes">守りたいこと</h2>
+    <ul class="rules">
+      <li>週に2日以上は休肝日をつくる。</li>
+      <li>女性、高齢の方、お酒に弱い体質の方は、標準の半分程度にする。</li>
+      <li>肝機能の異常や持病がある場合は、主治医の指示に従う。</li>
+    </ul>
+    <p class="fine">出典の目安: 厚生労働省「健康日本21」の節度ある適度な飲酒(純アルコール約20g)。度数は一般的な平均値で、商品ごとに異なります。分解時間は、体重1kgあたり1時間に純アルコール約0.1g(分解が遅い人は約0.07g)とした概算で、個人差があります。</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  var DRINKS = [
+    { name: 'ビール', abv: 5, u: 0, units: [{ l: '缶 350ml', ml: 350, n: '缶' }, { l: '中瓶・ロング缶 500ml', ml: 500, n: '本' }] },
+    { name: '日本酒', abv: 15, u: 0, units: [{ l: '1合 180ml', ml: 180, n: '合' }, { l: 'お猪口 約30ml', ml: 30, n: '杯' }] },
+    { name: 'ウイスキー', abv: 43, u: 0, units: [{ l: 'シングル 30ml', ml: 30, n: '杯' }, { l: 'ダブル 60ml', ml: 60, n: '杯' }] },
+    { name: '焼酎', abv: 25, u: 0, units: [{ l: '1合 180ml', ml: 180, n: '合' }, { l: 'グラス 100ml', ml: 100, n: '杯' }] },
+    { name: 'ワイン', abv: 12, u: 0, units: [{ l: 'グラス 120ml', ml: 120, n: '杯' }, { l: 'ボトル 750ml', ml: 750, n: '本' }] },
+    { name: '缶チューハイ', abv: 7, u: 0, units: [{ l: '350ml缶', ml: 350, n: '缶' }, { l: '500ml缶', ml: 500, n: '缶' }] }
+  ];
+  var PROFILES = [
+    { id: 'std', title: '標準的な成人男性', sub: '1日 20g', g: 20 },
+    { id: 'low', title: '女性・高齢者・お酒に弱い方', sub: '1日 10g', g: 10 }
+  ];
+  var KEY = 'sake-tekiryo-v1';
+  var state = { p: 0, abv: DRINKS.map(function (d) { return d.abv; }), u: DRINKS.map(function () { return 0; }), c: DRINKS.map(function (d, i) { return i === 0 ? 1 : 0; }), sample: true };
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && saved.abv && saved.abv.length === DRINKS.length && saved.c && saved.u) { state = saved; }
+  } catch (e) {}
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  if (typeof state.w !== 'number') { state.w = 60; }
+  if (!state.t) { var nd = new Date(); state.t = pad(nd.getHours()) + ':' + pad(nd.getMinutes()); }
+  function parseT(s) { var m = /^(\d{1,2}):(\d{2})$/.exec(s || ''); return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null; }
+  function hm(h) { var m = Math.ceil(h * 60 / 10) * 10; var H = Math.floor(m / 60), M = m % 60; return H + '時間' + (M ? M + '分' : ''); }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function $(id) { return document.getElementById(id); }
+  function num(v, d) { var n = parseFloat(v); return isFinite(n) ? n : d; }
+  function g1(x) { return (Math.round(x * 10) / 10).toFixed(1); }
+  function trim(x) { return String(parseFloat(x.toFixed(1))); }
+  function ml5(x) { return x < 100 ? Math.round(x / 5) * 5 : Math.round(x / 10) * 10; }
+  function grams(i) { var d = DRINKS[i]; return d.units[state.u[i]].ml * state.c[i] * state.abv[i] / 100 * 0.8; }
+
+  // profiles
+  var pbox = $('profiles');
+  PROFILES.forEach(function (p, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'profile'; b.setAttribute('role', 'radio'); b.id = 'prof-' + i;
+    b.innerHTML = '<b>' + p.title + '</b><small>' + p.sub + '</small>';
+    b.addEventListener('click', function () { state.p = i; state.sample = false; update(); });
+    pbox.appendChild(b);
+  });
+
+  // segments
+  var segs = $('segs');
+  DRINKS.forEach(function (d, i) {
+    var s = document.createElement('span'); s.id = 'seg-' + i; s.style.setProperty('--dc', 'var(--c' + (i + 1) + ')'); s.style.width = '0%'; segs.appendChild(s);
+  });
+
+  // drink rows
+  var list = $('drinks');
+  DRINKS.forEach(function (d, i) {
+    var li = document.createElement('li');
+    li.className = 'drink'; li.style.setProperty('--dc', 'var(--c' + (i + 1) + ')');
+    var opts = d.units.map(function (u, k) { return '<option value="' + k + '">' + u.l + '</option>'; }).join('');
+    li.innerHTML =
+      '<div class="d-head"><span class="swatch" aria-hidden="true"></span><h3>' + d.name + '</h3>' +
+      '<label class="abv" for="abv-' + i + '">度数 <input id="abv-' + i + '" type="number" inputmode="decimal" min="0.5" max="99" step="0.5"> %</label></div>' +
+      '<div class="d-ctl"><select id="unit-' + i + '" aria-label="' + d.name + 'の単位">' + opts + '</select>' +
+      '<div class="stepper"><button type="button" id="dec-' + i + '" aria-label="' + d.name + 'を減らす">−</button>' +
+      '<output id="cnt-' + i + '" for="dec-' + i + ' inc-' + i + '">0</output>' +
+      '<button type="button" id="inc-' + i + '" aria-label="' + d.name + 'を増やす">＋</button></div></div>' +
+      '<p class="d-calc" id="calc-' + i + '"></p>';
+    list.appendChild(li);
+    $('abv-' + i).value = state.abv[i];
+    $('unit-' + i).value = state.u[i];
+    $('abv-' + i).addEventListener('input', function (e) { state.abv[i] = Math.min(99, Math.max(0, num(e.target.value, 0))); state.sample = false; update(); });
+    $('unit-' + i).addEventListener('change', function (e) { state.u[i] = parseInt(e.target.value, 10); state.sample = false; update(); });
+    $('dec-' + i).addEventListener('click', function () { state.c[i] = Math.max(0, state.c[i] - 0.5); state.sample = false; update(); });
+    $('inc-' + i).addEventListener('click', function () { state.c[i] = Math.min(20, state.c[i] + 0.5); state.sample = false; update(); });
+  });
+
+  $('reset').addEventListener('click', function () {
+    state.c = DRINKS.map(function () { return 0; }); state.sample = false; update();
+  });
+
+  $('weight').addEventListener('input', function (e) { state.w = num(e.target.value, 60); update(); });
+  $('endtime').addEventListener('input', function (e) { state.t = e.target.value; update(); });
+  $('weight').value = state.w;
+  $('endtime').value = state.t;
+
+  function update() {
+    var limit = PROFILES[state.p].g;
+    var gs = DRINKS.map(function (d, i) { return grams(i); });
+    var total = gs.reduce(function (a, b) { return a + b; }, 0);
+    var rest = limit - total;
+    var ratio = total / limit;
+
+    PROFILES.forEach(function (p, i) { $('prof-' + i).setAttribute('aria-checked', i === state.p ? 'true' : 'false'); });
+
+    $('total').textContent = g1(total);
+    $('of').textContent = ' / ' + limit + ' g';
+    $('rest').textContent = rest >= 0 ? g1(rest) + ' g' : '超過 ' + g1(-rest) + ' g';
+    var w = Math.min(200, Math.max(30, num(state.w, 60)));
+    var tAvg = total / (w * 0.1);
+    var tSlow = total / (w * 0.07);
+    $('clear').textContent = total <= 0 ? '0時間' : '約' + hm(tAvg) + '〜' + hm(tSlow);
+    $('d-span').textContent = total <= 0 ? '0時間' : '約' + hm(tAvg) + '〜' + hm(tSlow);
+    var end = parseT(state.t);
+    if (total <= 0) { $('d-at').textContent = '飲酒量が0gです'; }
+    else if (end === null) { $('d-at').textContent = '飲み終わる時刻を入力してください'; }
+    else {
+      var at = end + Math.ceil((tSlow + 1) * 60 / 10) * 10;
+      var day = Math.floor(at / 1440);
+      var mm = at % 1440;
+      $('d-at').textContent = (day === 0 ? '当日' : day === 1 ? '翌日' : day + '日後') + ' ' + pad(Math.floor(mm / 60)) + ':' + pad(mm % 60) + ' 以降';
+    }
+
+    var pill = $('pill');
+    if (total <= 0) { pill.dataset.s = 'good'; pill.textContent = 'まだ飲んでいません'; }
+    else if (ratio < 0.7) { pill.dataset.s = 'good'; pill.textContent = '余裕があります'; }
+    else if (ratio <= 1) { pill.dataset.s = 'warn'; pill.textContent = ratio >= 1 ? '上限ちょうどです' : 'あと少しで上限です'; }
+    else { pill.dataset.s = 'bad'; pill.textContent = '上限を超えています'; }
+
+    var scale = Math.max(limit * 1.3, total * 1.08);
+    var tickPct = limit / scale * 100;
+    $('tick').style.left = 'calc(' + tickPct + '% - 1px)';
+    $('over').style.left = tickPct + '%';
+    $('ticklabel').style.left = tickPct + '%';
+    $('ticklabel').textContent = '上限 ' + limit + 'g';
+    DRINKS.forEach(function (d, i) { $('seg-' + i).style.width = (gs[i] / scale * 100) + '%'; });
+
+    DRINKS.forEach(function (d, i) {
+      var u = d.units[state.u[i]];
+      var abv = state.abv[i];
+      $('cnt-' + i).textContent = trim(state.c[i]);
+      $('dec-' + i).disabled = state.c[i] <= 0;
+      $('inc-' + i).disabled = state.c[i] >= 20;
+      var left;
+      if (abv <= 0) { left = '<span class="left">度数を入力してください</span>'; }
+      else if (rest <= 0) { left = '<span class="left" data-over="1">' + (rest < 0 ? '上限を超えています' : '上限に達しています') + '</span>'; }
+      else {
+        var mlLeft = rest * 100 / (abv * 0.8);
+        left = '<span class="left">あと <b>' + ml5(mlLeft) + 'ml</b>(' + u.n + ' ' + trim(mlLeft / u.ml) + ')まで</span>';
+      }
+      $('calc-' + i).innerHTML = '<span>この分 <b>' + g1(gs[i]) + ' g</b>(' + Math.round(u.ml * state.c[i]) + 'ml)</span>' + left;
+    });
+
+    var rows = DRINKS.map(function (d, i) {
+      var u = d.units[state.u[i]];
+      var abv = state.abv[i];
+      if (abv <= 0) { return '<tr><td>' + d.name + '</td><td class="num">-</td><td>-</td><td>-</td></tr>'; }
+      var ml = limit * 100 / (abv * 0.8);
+      return '<tr><td>' + d.name + '</td><td class="num">' + trim(abv) + '%</td><td class="num">約' + ml5(ml) + 'ml</td><td class="num">' + trim(ml / u.ml) + u.n + '(' + u.ml + 'ml)</td></tr>';
+    });
+    $('ref').innerHTML = rows.join('');
+
+    $('sample').hidden = !state.sample;
+    save();
+  }
+  update();
+})();
+</script>
